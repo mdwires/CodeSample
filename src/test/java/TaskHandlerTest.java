@@ -19,6 +19,9 @@ public class TaskHandlerTest {
     DateTimeFormatter dtFormat = DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm:ss zzz");
     MockLogger mockLogger = new MockLogger("TestLogger");
 
+    // This works for the years tested in this file, but we could generate this dynamically in the future.
+    private static final int WORKDAYS_IN_YEAR = 261;
+
     String invalidTaskDateExceptionExpected = "Expected a InvalidTaskDateException but none was thrown";
     String taskHandlerExceptionExpected = "Expected a TaskDateHandlerException but none was thrown";
     String invalidTaskDateLogMessage = "Invalid start date provided";
@@ -144,6 +147,24 @@ public class TaskHandlerTest {
     }
 
     @Test
+    public void incrementOneHourWorkdayEnd() throws TaskHandlerException, InvalidTaskDateException {
+        ZonedDateTime startDate = ZonedDateTime.parse("09/05/2024 16:00:00 EST", dtFormat);
+        //Ensure we support due dates at EOD
+        ZonedDateTime expectedDueDate = ZonedDateTime.parse("09/05/2024 17:00:00 EST", dtFormat);
+        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, 1));
+        Assertions.assertEquals(expectedDueDate, resultDate);
+    }
+
+    @Test
+    // Ensure that an 8 hour task scheduled at start of the day ends at the end of the day
+    public void incrementFullWorkdayTask() throws TaskHandlerException, InvalidTaskDateException {
+        ZonedDateTime startDate = ZonedDateTime.parse("09/05/2024 09:00:00 EST", dtFormat);
+        ZonedDateTime expectedDueDate = ZonedDateTime.parse("09/05/2024 17:00:00 EST", dtFormat);
+        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, 8));
+        Assertions.assertEquals(expectedDueDate, resultDate);
+    }
+
+    @Test
     public void incrementOneWorkDay() throws TaskHandlerException, InvalidTaskDateException {
         ZonedDateTime startDate = ZonedDateTime.parse("09/05/2024 16:34:23 EST", dtFormat);
         ZonedDateTime expectedDueDate = ZonedDateTime.parse("09/06/2024 09:34:23 EST", dtFormat);
@@ -156,6 +177,14 @@ public class TaskHandlerTest {
         ZonedDateTime startDate = ZonedDateTime.parse("09/06/2024 16:34:23 EST", dtFormat);
         ZonedDateTime expectedDueDate = ZonedDateTime.parse("09/09/2024 09:34:23 EST", dtFormat);
         ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, 1));
+        Assertions.assertEquals(expectedDueDate, resultDate);
+    }
+
+    @Test
+    public void incrementOneMultipleDayInAWeek() throws TaskHandlerException, InvalidTaskDateException {
+        ZonedDateTime startDate = ZonedDateTime.parse("09/02/2024 16:34:23 EST", dtFormat);
+        ZonedDateTime expectedDueDate = ZonedDateTime.parse("09/05/2024 12:34:23 EST", dtFormat);
+        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, 20));
         Assertions.assertEquals(expectedDueDate, resultDate);
     }
 
@@ -185,37 +214,47 @@ public class TaskHandlerTest {
 
     @Test
     public void incrementLeapYearLongTask() throws TaskHandlerException, InvalidTaskDateException {
-        int taskLength = (52*5+1)*8; //Work hours in a leap year (2024)
+        int yearLongTask = (WORKDAYS_IN_YEAR + 1) * 8; //Work hours in a leap year (2024)
         ZonedDateTime startDate = ZonedDateTime.parse("01/01/2024 16:34:23 EST", dtFormat);
-        ZonedDateTime expectedDueDate = ZonedDateTime.parse("12/31/2024 16:34:23 EST", dtFormat);
-        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, taskLength));
+        ZonedDateTime expectedDueDate = ZonedDateTime.parse("01/01/2025 16:34:23 EST", dtFormat);
+        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, yearLongTask));
         Assertions.assertEquals(expectedDueDate, resultDate);
     }
 
     @Test
     public void incrementNonLeapYearLongTask() throws TaskHandlerException, InvalidTaskDateException {
-        int taskLength = (52*5)*8; //Work hours in a non leap year
+        int yearLongTask = WORKDAYS_IN_YEAR * 8; //Work hours in a non leap year
         ZonedDateTime startDate = ZonedDateTime.parse("01/01/2025 16:34:23 EST", dtFormat);
-        ZonedDateTime expectedDueDate = ZonedDateTime.parse("12/31/2025 16:34:23 EST", dtFormat);
-        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, taskLength));
+        ZonedDateTime expectedDueDate = ZonedDateTime.parse("01/01/2026 16:34:23 EST", dtFormat);
+        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, yearLongTask));
         Assertions.assertEquals(expectedDueDate, resultDate);
     }
 
     @Test
     public void incrementWithYearRollover() throws TaskHandlerException, InvalidTaskDateException {
-        int taskLength = (52*5)*8; //Work hours in a non leap year
+        int yearAndOneHourTask = WORKDAYS_IN_YEAR * 8 + 1; //Work hours in a non leap year plus one hour
         ZonedDateTime startDate = ZonedDateTime.parse("01/01/2025 16:34:23 EST", dtFormat);
-        ZonedDateTime expectedDueDate = ZonedDateTime.parse("01/01/2026 09:34:23 ET", dtFormat);
-        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, taskLength + 1));
+        ZonedDateTime expectedDueDate = ZonedDateTime.parse("01/02/2026 09:34:23 EST", dtFormat);
+        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, yearAndOneHourTask));
+        Assertions.assertEquals(expectedDueDate, resultDate);
+    }
+
+    @Test
+    public void incrementMultiYearRollover() throws TaskHandlerException, InvalidTaskDateException {
+        int threeYearTask = (WORKDAYS_IN_YEAR * 3) * 8;
+        ZonedDateTime startDate = ZonedDateTime.parse("01/01/2025 16:34:23 EST", dtFormat);
+        // Not 01/01/2028 as this is a Saturday, Monday would be 01/03/2028
+        ZonedDateTime expectedDueDate = ZonedDateTime.parse("01/03/2028 16:34:23 EST", dtFormat);
+        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, threeYearTask));
         Assertions.assertEquals(expectedDueDate, resultDate);
     }
 
     @Test
     public void incrementUTCWithRollover() throws TaskHandlerException, InvalidTaskDateException {
-        int taskLength = (52*5)*8; //Work hours in a non leap year
+        int yearAndOneHourTask = WORKDAYS_IN_YEAR * 8 + 1; //Work hours in a non leap year plus one hour
         ZonedDateTime startDate = ZonedDateTime.parse("01/01/2025 16:34:23 UTC", dtFormat);
-        ZonedDateTime expectedDueDate = ZonedDateTime.parse("01/01/2026 09:34:23 UTC", dtFormat);
-        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, taskLength + 1));
+        ZonedDateTime expectedDueDate = ZonedDateTime.parse("01/02/2026 09:34:23 UTC", dtFormat);
+        ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, yearAndOneHourTask));
         Assertions.assertEquals(expectedDueDate, resultDate);
     }
     //endregion
