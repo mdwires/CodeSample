@@ -9,6 +9,9 @@ import java.util.logging.Logger;
 
 public class TaskHandler {
 
+    private static final int NON_WORK_HOURS = 16; // 24 hours - 8 work hours = 16 non work hours
+    private static final int WORKDAY_END_HOUR = 17; // 17 = 17:00 - 5:00PM
+    private static final int WORKDAY_START_HOUR = 9; // 9 = 09:00 - 9:00AM
     Logger logger;
 
     /**
@@ -49,13 +52,7 @@ public class TaskHandler {
             throw new TaskHandlerException(String.format("Invalid task length: %d. Value must be greater than zero.", taskLength));
         }
 
-        Calendar taskDueDate = incrementTaskDueDate(calendarDate, taskLength);
-        // Surface and log unexpected bad calculations
-        if (!validateDateForWorkingHours(taskDueDate)) {
-            logger.log(Level.SEVERE, String.format("Invalid calutated result: %s", taskDueDate));
-            throw new TaskHandlerException("An error has occurred while calculating task due date");
-        }
-        return taskDueDate.toInstant().atZone(startDate.getZone());
+        return incrementTaskDueDate(calendarDate, taskLength).toInstant().atZone(startDate.getZone());
     }
 
     // Recursive method used for calculating the task due date.
@@ -72,6 +69,7 @@ public class TaskHandler {
             dueDate.add(Calendar.DAY_OF_YEAR, 2); // Skip to monday
             return incrementTaskDueDate(dueDate, hoursRemain);
         }
+        // Should never hit this
         if (dayOfWeek == Calendar.SUNDAY) {
             dueDate.add(Calendar.DAY_OF_YEAR, 1); //Skip to monday
             return incrementTaskDueDate(dueDate, hoursRemain);
@@ -79,17 +77,17 @@ public class TaskHandler {
 
         // Base case
         if (hoursRemain == 0) {
-            if (validateDateForWorkingHours(dueDate)) {
+            if (validateDateForWorkingHours(dueDate)) { // Confirm we have a valid date
                 return dueDate;
-            } else {
-                dueDate.add(Calendar.HOUR_OF_DAY, 16); //Increment to next workday (Weekends handled above)
+            } else { // If we land here it means we need to adjust forward to the next workday as we are outside working hours
+                dueDate.add(Calendar.HOUR_OF_DAY, NON_WORK_HOURS); //Increment to next workday (Weekends handled above)
                 return incrementTaskDueDate(dueDate, 0);
             }
         } else {  // continue to increment
-            int hour = dueDate.get(Calendar.HOUR_OF_DAY);
-            int hoursLeftInDay = 17 - hour; // 17 = 17:00 - 5:00PM
+            int currentHour = dueDate.get(Calendar.HOUR_OF_DAY);
+            int hoursLeftInDay = WORKDAY_END_HOUR - currentHour;
             if (hoursRemain > hoursLeftInDay) {
-                dueDate.add(Calendar.HOUR_OF_DAY, 16 + hoursLeftInDay); // Increment to next day
+                dueDate.add(Calendar.HOUR_OF_DAY, hoursLeftInDay + NON_WORK_HOURS); //hours consume today + shift forward to next workday
                 return incrementTaskDueDate(dueDate, hoursRemain - hoursLeftInDay);
             } else {
                 dueDate.add(Calendar.HOUR_OF_DAY, hoursRemain);
@@ -111,10 +109,10 @@ public class TaskHandler {
         int hours = targetDate.get(Calendar.HOUR_OF_DAY);
         int minutes = targetDate.get(Calendar.MINUTE);
         int seconds = targetDate.get(Calendar.SECOND);
-        if (hours < 9 || // before work hours
-                hours > 17 || // after work hours
-                (hours == 17 && minutes > 0) || // after work (minutes)
-                (hours == 17 && minutes == 0 && seconds > 0)) // after work (seconds)
+        if (hours < WORKDAY_START_HOUR || // before work hours
+                hours > WORKDAY_END_HOUR || // after work hours
+                (hours == WORKDAY_END_HOUR && minutes > 0) || // after work (minutes)
+                (hours == WORKDAY_END_HOUR && minutes == 0 && seconds > 0)) // after work (seconds)
             {
             return false;
         }

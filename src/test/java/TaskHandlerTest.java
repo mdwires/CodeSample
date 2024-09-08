@@ -176,7 +176,7 @@ public class TaskHandlerTest {
     }
 
     @Test
-    public void incrementLeapYearShortLength() throws TaskHandlerException, InvalidTaskDateException {
+    public void incrementLeapYearShortTask() throws TaskHandlerException, InvalidTaskDateException {
         ZonedDateTime startDate = ZonedDateTime.parse("03/28/2024 16:34:23 EST", dtFormat);
         ZonedDateTime expectedDueDate = ZonedDateTime.parse("03/29/2024 09:34:23 EST", dtFormat);
         ZonedDateTime resultDate = taskHandler.calculateDueDate(new Task(startDate, 1));
@@ -184,7 +184,7 @@ public class TaskHandlerTest {
     }
 
     @Test
-    public void incrementLeapYearLongLength() throws TaskHandlerException, InvalidTaskDateException {
+    public void incrementLeapYearLongTask() throws TaskHandlerException, InvalidTaskDateException {
         int taskLength = (52*5+1)*8; //Work hours in a leap year (2024)
         ZonedDateTime startDate = ZonedDateTime.parse("01/01/2024 16:34:23 EST", dtFormat);
         ZonedDateTime expectedDueDate = ZonedDateTime.parse("12/31/2024 16:34:23 EST", dtFormat);
@@ -193,7 +193,7 @@ public class TaskHandlerTest {
     }
 
     @Test
-    public void incrementNonLeapYearLongLength() throws TaskHandlerException, InvalidTaskDateException {
+    public void incrementNonLeapYearLongTask() throws TaskHandlerException, InvalidTaskDateException {
         int taskLength = (52*5)*8; //Work hours in a non leap year
         ZonedDateTime startDate = ZonedDateTime.parse("01/01/2025 16:34:23 EST", dtFormat);
         ZonedDateTime expectedDueDate = ZonedDateTime.parse("12/31/2025 16:34:23 EST", dtFormat);
@@ -202,7 +202,7 @@ public class TaskHandlerTest {
     }
 
     @Test
-    public void incrementCheckYearRollover() throws TaskHandlerException, InvalidTaskDateException {
+    public void incrementWithYearRollover() throws TaskHandlerException, InvalidTaskDateException {
         int taskLength = (52*5)*8; //Work hours in a non leap year
         ZonedDateTime startDate = ZonedDateTime.parse("01/01/2025 16:34:23 EST", dtFormat);
         ZonedDateTime expectedDueDate = ZonedDateTime.parse("01/01/2026 09:34:23 ET", dtFormat);
